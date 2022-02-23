@@ -1,4 +1,3 @@
-import java.net.*;
 import java.io.*;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
@@ -43,9 +42,9 @@ public class OldClient {
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         SSLContext ctx = SSLContext.getInstance("TLSv1.2");
         // keystore password (storepass)
-        ks.load(new FileInputStream("clientkeystore"), password);  
+        ks.load(new FileInputStream("clientkeystore"), password);
         // truststore password (storepass);
-        ts.load(new FileInputStream("clienttruststore"), password); 
+        ts.load(new FileInputStream("clienttruststore"), password);
         kmf.init(ks, password); // user password (keypass)
         tmf.init(ts); // keystore can be used as truststore here
         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
@@ -53,7 +52,7 @@ public class OldClient {
       } catch (Exception e) {
         throw new IOException(e.getMessage());
       }
-      SSLSocket socket = (SSLSocket)factory.createSocket(host, port);
+      SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
       System.out.println("\nsocket before handshake:\n" + socket + "\n");
 
       /*
@@ -64,9 +63,11 @@ public class OldClient {
        */
 
       socket.startHandshake();
+
       SSLSession session = socket.getSession();
       Certificate[] cert = session.getPeerCertificates();
       String subject = ((X509Certificate) cert[0]).getSubjectX500Principal().getName();
+
       System.out.println("certificate name (subject DN field) on certificate received from server:\n" + subject + "\n");
       System.out.println("socket after handshake:\n" + socket + "\n");
       System.out.println("secure connection established\n\n");
@@ -74,6 +75,7 @@ public class OldClient {
       BufferedReader read = new BufferedReader(new InputStreamReader(System.in));
       PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
       BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
       String msg;
       for (;;) {
         System.out.print(">");
@@ -87,6 +89,7 @@ public class OldClient {
         System.out.println("done");
         System.out.println("received '" + in.readLine() + "' from server\n");
       }
+
       in.close();
       out.close();
       read.close();

@@ -22,7 +22,7 @@ CREATE TABLE hospital_divisions (
 CREATE TABLE individuals (
   ssn               TEXT UNIQUE,  
   individual_name   TEXT,
-  phone_number      TEXT UNIQUE,
+  login_attempts    INT DEFAULT 0,
 
   password          TEXT,
 
@@ -91,15 +91,15 @@ CREATE TABLE medical_records (
 );
 
 
-INSERT INTO individuals (ssn, individual_name, phone_number, password)
+INSERT INTO individuals (ssn, individual_name, password)
 VALUES
-  ("123456-0001",  "Alex Sibzamini",     "070123451", "password123!"),
-  ("123456-0002",  "Emma Potatisodlare", "070123452", "password123!"),
-  ("123456-0003",  "Alice Pot. Atis",    "070123453", "password123!"),
-  ("123456-0004",  "Bob P. Tato",        "070123454", "password123!"),
-  ("123456-0005",  "Jonas Pommes",       "070123455", "password123!"),
+  ("123456-0001",  "Alex Sibzamini",     "password123!"),
+  ("123456-0002",  "Emma Potatisodlare", "password123!"),
+  ("123456-0003",  "Alice Pot. Atis",    "password123!"),
+  ("123456-0004",  "Bob P. Tato",        "password123!"),
+  ("123456-0005",  "Jonas Pommes",       "password123!"),
   
-  ("123456-0007",  "James Bond",         "007007007", "password007!");
+  ("123456-0007",  "James Bond",         "password007!");
 
 
 INSERT INTO patients (patient_id, patient_ssn)

@@ -9,7 +9,7 @@ import java.security.cert.X509Certificate;
 public class OldServer implements Runnable {
   private ServerSocket serverSocket = null;
   private static int numConnectedClients = 0;
-  
+
   public OldServer(ServerSocket ss) throws IOException {
     serverSocket = ss;
     newListener();
@@ -17,11 +17,14 @@ public class OldServer implements Runnable {
 
   public void run() {
     try {
-      SSLSocket socket=(SSLSocket)serverSocket.accept();
+      SSLSocket socket = (SSLSocket) serverSocket.accept();
+
       newListener();
+
       SSLSession session = socket.getSession();
       Certificate[] cert = session.getPeerCertificates();
       String subject = ((X509Certificate) cert[0]).getSubjectX500Principal().getName();
+
       numConnectedClients++;
       System.out.println("client connected");
       System.out.println("client name (cert subject DN field): " + subject);
@@ -41,10 +44,12 @@ public class OldServer implements Runnable {
         out.flush();
         System.out.println("done\n");
       }
+
       in.close();
       out.close();
       socket.close();
       numConnectedClients--;
+
       System.out.println("client disconnected");
       System.out.println(numConnectedClients + " concurrent connection(s)\n");
     } catch (IOException e) {
@@ -53,19 +58,25 @@ public class OldServer implements Runnable {
       return;
     }
   }
-  
-  private void newListener() { (new Thread(this)).start(); } // calls run()
+
+  private void newListener() {
+    (new Thread(this)).start();
+  } // calls run()
+
   public static void main(String args[]) {
     System.out.println("\nServer Started\n");
+
     int port = -1;
     if (args.length >= 1) {
       port = Integer.parseInt(args[0]);
     }
+
     String type = "TLSv1.2";
+
     try {
       ServerSocketFactory ssf = getServerSocketFactory(type);
       ServerSocket ss = ssf.createServerSocket(port);
-      ((SSLServerSocket)ss).setNeedClientAuth(true); // enables client authentication
+      ((SSLServerSocket) ss).setNeedClientAuth(true); // enables client authentication
       new OldServer(ss);
     } catch (IOException e) {
       System.out.println("Unable to start Server: " + e.getMessage());
@@ -83,12 +94,15 @@ public class OldServer implements Runnable {
         KeyStore ks = KeyStore.getInstance("JKS");
         KeyStore ts = KeyStore.getInstance("JKS");
         char[] password = "password".toCharArray();
+
         // keystore password (storepass)
-        ks.load(new FileInputStream("serverkeystore"), password);  
+        ks.load(new FileInputStream("serverkeystore"), password);
+
         // truststore password (storepass)
-        ts.load(new FileInputStream("servertruststore"), password); 
+        ts.load(new FileInputStream("servertruststore"), password);
+
         kmf.init(ks, password); // certificate password (keypass)
-        tmf.init(ts);  // possible to use keystore as truststore here
+        tmf.init(ts); // possible to use keystore as truststore here
         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
         ssf = ctx.getServerSocketFactory();
         return ssf;
