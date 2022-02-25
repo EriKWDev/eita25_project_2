@@ -1,3 +1,5 @@
+package server_project;
+
 import java.io.*;
 import java.net.*;
 import javax.net.*;
@@ -5,14 +7,90 @@ import javax.net.ssl.*;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
+import java.util.stream.Stream;
 
-public class OldServer implements Runnable {
+public class Server implements Runnable {
   private ServerSocket serverSocket = null;
   private static int numConnectedClients = 0;
 
-  public OldServer(ServerSocket ss) throws IOException {
+  private Map<String, Integer> sessionNonceMap = new HashMap<>();
+  private Random random = new Random();
+
+  Connection connection;
+
+  public Server(ServerSocket ss) throws IOException, SQLException {
     serverSocket = ss;
+
+    String databaseString = "jdbc:sqlite:src/main/resources/database.sqlite";
+    connection = DriverManager.getConnection(databaseString);
+
+    /*
+     * Statement statement = connection.createStatement(
+     * ResultSet.TYPE_FORWARD_ONLY,
+     * ResultSet.CONCUR_READ_ONLY);
+     * 
+     * ResultSet rs = statement.executeQuery("SELECT * FROM individuals");
+     * 
+     * while (rs.next()) {
+     * System.out.println(rs.getString("individual_name"));
+     * }
+     */
+
     newListener();
+  }
+
+  public String hash(String password, String salt) {
+    return "" + (password + salt).hashCode();
+  }
+
+  public void handleClientMessage(PrintWriter out, String message) {
+    var messages = message.split(";");
+
+    if (messages[0].compareTo("NEW_SESSION") == 0) {
+
+      System.out.println("Received new session request.");
+
+      out.println("SESSION;" + random.nextInt(10000, 99999));
+      out.flush();
+      return;
+
+    } else if (messages[0].compareTo("LOGIN") == 0) {
+
+      System.out.println("Received login request.");
+
+      // SELECT *
+      // FROM individuals
+      // WHERE ssn = username AND password = hashed_password
+
+      String username = messages[1];
+      String password = messages[2];
+
+      System.out.println(username);
+      System.out.println(password);
+
+      String hashedPassword = hash(password, username);
+      System.out.println("Hashed: " + hashedPassword);
+
+      return;
+    }
+
+    String rev = new StringBuilder(message).reverse().toString();
+    System.out.println("received '" + message + "' from client");
+    System.out.print("sending '" + rev + "' to client...");
+
+    out.println(rev);
+    out.flush();
+
+    System.out.println("done\n");
   }
 
   public void run() {
@@ -26,23 +104,20 @@ public class OldServer implements Runnable {
       String subject = ((X509Certificate) cert[0]).getSubjectX500Principal().getName();
 
       numConnectedClients++;
+
       System.out.println("client connected");
       System.out.println("client name (cert subject DN field): " + subject);
       System.out.println(numConnectedClients + " concurrent connection(s)\n");
 
       PrintWriter out = null;
       BufferedReader in = null;
+
       out = new PrintWriter(socket.getOutputStream(), true);
       in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
       String clientMsg = null;
       while ((clientMsg = in.readLine()) != null) {
-        String rev = new StringBuilder(clientMsg).reverse().toString();
-        System.out.println("received '" + clientMsg + "' from client");
-        System.out.print("sending '" + rev + "' to client...");
-        out.println(rev);
-        out.flush();
-        System.out.println("done\n");
+        handleClientMessage(out, clientMsg);
       }
 
       in.close();
@@ -63,30 +138,10 @@ public class OldServer implements Runnable {
     (new Thread(this)).start();
   } // calls run()
 
-  public static void main(String args[]) {
-    System.out.println("\nServer Started\n");
-
-    int port = -1;
-    if (args.length >= 1) {
-      port = Integer.parseInt(args[0]);
-    }
-
-    String type = "TLSv1.2";
-
-    try {
-      ServerSocketFactory ssf = getServerSocketFactory(type);
-      ServerSocket ss = ssf.createServerSocket(port);
-      ((SSLServerSocket) ss).setNeedClientAuth(true); // enables client authentication
-      new OldServer(ss);
-    } catch (IOException e) {
-      System.out.println("Unable to start Server: " + e.getMessage());
-      e.printStackTrace();
-    }
-  }
-
-  private static ServerSocketFactory getServerSocketFactory(String type) {
+  public static ServerSocketFactory getServerSocketFactory(String type) {
     if (type.equals("TLSv1.2")) {
       SSLServerSocketFactory ssf = null;
+
       try { // set up key manager to perform server authentication
         SSLContext ctx = SSLContext.getInstance("TLSv1.2");
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
@@ -96,15 +151,16 @@ public class OldServer implements Runnable {
         char[] password = "password".toCharArray();
 
         // keystore password (storepass)
-        ks.load(new FileInputStream("serverkeystore"), password);
+        ks.load(new FileInputStream("src/main/resources/serverkeystore"), password);
 
         // truststore password (storepass)
-        ts.load(new FileInputStream("servertruststore"), password);
+        ts.load(new FileInputStream("src/main/resources/servertruststore"), password);
 
         kmf.init(ks, password); // certificate password (keypass)
         tmf.init(ts); // possible to use keystore as truststore here
         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
         ssf = ctx.getServerSocketFactory();
+
         return ssf;
       } catch (Exception e) {
         e.printStackTrace();

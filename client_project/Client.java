@@ -1,8 +1,11 @@
+
 import java.io.*;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
 import java.security.KeyStore;
 import java.security.cert.*;
+// import org.json.*;
+
 
 /*
  * This example shows how to set up a key manager to perform client
@@ -13,17 +16,74 @@ import java.security.cert.*;
  * the firewall by following SSLSocketClientWithTunneling.java.
  */
 
-public class OldClient {
+public class Client {
+  public static void mainLoop(BufferedReader read, PrintWriter out, BufferedReader in) {
+    String msg = "";
+    String session = "";
+    // Console console = System.console();
+
+    try {
+      System.out.println("username: ");
+      var username = read.readLine();
+      System.out.println("password: ");
+
+      // char[] password = console.readPassword();
+      var password = read.readLine();
+      System.out.println("Yeyeyeyeye " + username + " " + password);
+
+      out.println("NEW_SESSION;");
+      out.flush();
+
+      String result = in.readLine();
+      session = result.split(";")[1];
+      System.out.println("SESSION: " + session);
+
+      out.println("LOGIN;" + username +  ";" + password + ";" + session + ";");
+      out.flush();
+
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    for (;;) {
+      System.out.print(">");
+
+      try {
+        msg = read.readLine();
+
+        if (msg.equalsIgnoreCase("quit")) {
+          break;
+        }
+
+        System.out.print("sending '" + msg + "' to server...");
+
+        out.println(msg);
+        out.flush();
+
+
+        System.out.println("done");
+        System.out.println("received '" + in.readLine() + "' from server\n");
+
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
+    }
+  }
+
   public static void main(String[] args) throws Exception {
     String host = null;
-    int port = -1;
+    int port = 1337;
+
     for (int i = 0; i < args.length; i++) {
       System.out.println("args[" + i + "] = " + args[i]);
     }
+
     if (args.length < 2) {
       System.out.println("USAGE: java client host port");
       System.exit(-1);
     }
+
     try { /* get input parameters */
       host = args[0];
       port = Integer.parseInt(args[1]);
@@ -35,20 +95,27 @@ public class OldClient {
     try {
       SSLSocketFactory factory = null;
       try {
-        char[] password = "password".toCharArray();
         KeyStore ks = KeyStore.getInstance("JKS");
         KeyStore ts = KeyStore.getInstance("JKS");
+
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+
         SSLContext ctx = SSLContext.getInstance("TLSv1.2");
+        char[] password = "password".toCharArray();
+
         // keystore password (storepass)
         ks.load(new FileInputStream("clientkeystore"), password);
-        // truststore password (storepass);
+
+        // truststore password (storepass)
         ts.load(new FileInputStream("clienttruststore"), password);
+
         kmf.init(ks, password); // user password (keypass)
         tmf.init(ts); // keystore can be used as truststore here
         ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
+
         factory = ctx.getSocketFactory();
+
       } catch (Exception e) {
         throw new IOException(e.getMessage());
       }
@@ -76,19 +143,7 @@ public class OldClient {
       PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
       BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-      String msg;
-      for (;;) {
-        System.out.print(">");
-        msg = read.readLine();
-        if (msg.equalsIgnoreCase("quit")) {
-          break;
-        }
-        System.out.print("sending '" + msg + "' to server...");
-        out.println(msg);
-        out.flush();
-        System.out.println("done");
-        System.out.println("received '" + in.readLine() + "' from server\n");
-      }
+      mainLoop(read, out, in);
 
       in.close();
       out.close();
