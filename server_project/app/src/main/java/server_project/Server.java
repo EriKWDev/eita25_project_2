@@ -4,19 +4,19 @@ import java.io.*;
 import java.net.*;
 import javax.net.*;
 import javax.net.ssl.*;
+
+import org.json.*;
+
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.Stream;
 
 public class Server implements Runnable {
   private ServerSocket serverSocket = null;
@@ -52,45 +52,76 @@ public class Server implements Runnable {
     return "" + (password + salt).hashCode();
   }
 
+  public void log(String message) {
+    System.out.println(new Date().toString() + " | " + message);
+  }
+
   public void handleClientMessage(PrintWriter out, String message) {
-    var messages = message.split(";");
+    // message = "{ \"kind\": \"NEW_SESSION\" }"
 
-    if (messages[0].compareTo("NEW_SESSION") == 0) {
+    try {
+      JSONObject json = new JSONObject(message);
+      String kind = json.getString("kind");
+      log("Received request of kind: '" + kind + "'");
 
-      System.out.println("Received new session request.");
+      switch (kind) {
+        case "NEW_SESSION":
+          String newSession = "" + (10000 + random.nextInt(99999));
+          int newNonce = random.nextInt(1000000);
+          sessionNonceMap.put(newSession, newNonce);
 
-      out.println("SESSION;" + random.nextInt(10000, 99999));
-      out.flush();
-      return;
+          out.println(
+              new JSONObject()
+                  .put("kind", "NEW_SESSION_RESPONSE")
+                  .put("session", newSession)
+                  .put("nonce", newNonce));
+          out.flush();
+          break;
 
-    } else if (messages[0].compareTo("LOGIN") == 0) {
+        case "LOGIN":
+          String session = json.getString("session");
+          int nonce = json.getInt("nonce");
 
-      System.out.println("Received login request.");
+          if (!sessionNonceMap.containsKey(session)) {
+            log("[ERROR] Incorrect session from client.");
+            break; // Incorrect session
+          } else {
+            if (nonce != sessionNonceMap.get(session) + 1) {
+              log("[ERROR] Incorrect nonce from client.");
+              break; // Incorrect nonce
+            }
+          }
 
-      // SELECT *
-      // FROM individuals
-      // WHERE ssn = username AND password = hashed_password
+          // SELECT *
+          // FROM individuals
+          // WHERE ssn = username AND password = hashed_password
 
-      String username = messages[1];
-      String password = messages[2];
+          String username = json.getString("username");
+          String password = json.getString("password");
 
-      System.out.println(username);
-      System.out.println(password);
+          log(username);
+          log(password);
 
-      String hashedPassword = hash(password, username);
-      System.out.println("Hashed: " + hashedPassword);
+          String hashedPassword = hash(password, username);
+          log("Hashed: " + hashedPassword);
+          break;
 
-      return;
+        default:
+          log("[ERROR] Could not handle request.");
+          break;
+      }
+    } catch (JSONException e) {
+      e.printStackTrace();
     }
 
-    String rev = new StringBuilder(message).reverse().toString();
-    System.out.println("received '" + message + "' from client");
-    System.out.print("sending '" + rev + "' to client...");
+    // String rev = new StringBuilder(message).reverse().toString();
+    // System.out.println("received '" + message + "' from client");
+    // System.out.print("sending '" + rev + "' to client...");
 
-    out.println(rev);
-    out.flush();
+    // out.println(rev);
+    // out.flush();
 
-    System.out.println("done\n");
+    // System.out.println("done\n");
   }
 
   public void run() {

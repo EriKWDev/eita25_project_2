@@ -1,1 +1,1 @@
-javac Client.java && java Client localhost 1337
+gradle run --console=plain --args "localhost 1337"
