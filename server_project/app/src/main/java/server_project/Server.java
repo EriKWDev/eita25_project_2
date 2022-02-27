@@ -33,6 +33,7 @@ public class Server implements Runnable {
     String databaseString = "jdbc:sqlite:src/main/resources/database.sqlite";
     connection = DriverManager.getConnection(databaseString);
 
+    log("Server Started");
     newListener();
   }
 
@@ -100,11 +101,12 @@ public class Server implements Runnable {
           String username = data.getString("username");
           String password = data.getString("password");
 
-          // log(username);
-          // log(password);
-
           String hashedPassword = hash(password, username);
-          log("Hashed Password: " + hashedPassword);
+
+          var statement = connection.prepareStatement("SELECT * FROM individuals WHERE ssn = 123456-0001");
+          statement.execute();
+
+          var loginResultSet = statement.getResultSet();
 
           var success = true;
 
@@ -127,8 +129,12 @@ public class Server implements Runnable {
           log("[ERROR] Could not handle request.");
           break;
       }
-    } catch (JSONException e) {
-      e.printStackTrace();
+    } catch (JSONException | SQLException e) {
+      log("[ERROR] Error occured while processing request '" + message.toString() + "'");
+      log("[ERROR] " + e.getMessage());
+      for (var trace : e.getStackTrace()) {
+        log("[ERROR]    " + trace);
+      }
     }
   }
 

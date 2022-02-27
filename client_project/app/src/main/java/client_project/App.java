@@ -2,13 +2,15 @@ package client_project;
 
 import java.io.*;
 import javax.net.ssl.*;
-import java.security.cert.X509Certificate;
+
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.*;
 import org.json.*;
 
@@ -166,20 +168,16 @@ public class App {
       } catch (IOException e) {
         e.printStackTrace();
       }
-
     }
   }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     String host = null;
     int port = 1337;
 
-    for (int i = 0; i < args.length; i++) {
-      System.out.println("args[" + i + "] = " + args[i]);
-    }
-
     if (args.length < 2) {
-      System.out.println("USAGE: java client host port");
+      System.out.println("Please provide host and port: <host> <port>");
+      System.out.println("Example: localhost 1337");
       System.exit(-1);
     }
 
@@ -187,46 +185,31 @@ public class App {
       host = args[0];
       port = Integer.parseInt(args[1]);
     } catch (IllegalArgumentException e) {
-      System.out.println("USAGE: java client host port");
       System.exit(-1);
     }
 
     try {
-      SSLSocketFactory factory = null;
-      try {
-        KeyStore ks = KeyStore.getInstance("JKS");
-        KeyStore ts = KeyStore.getInstance("JKS");
+      KeyStore ks = KeyStore.getInstance("JKS");
+      KeyStore ts = KeyStore.getInstance("JKS");
 
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+      KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+      TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
 
-        SSLContext ctx = SSLContext.getInstance("TLSv1.2");
-        char[] password = "password".toCharArray();
+      SSLContext ctx = SSLContext.getInstance("TLSv1.2");
+      char[] password = "password".toCharArray();
 
-        // keystore password (storepass)
-        ks.load(new FileInputStream("src/main/resources/clientkeystore"), password);
+      // keystore password (storepass)
+      ks.load(new FileInputStream("src/main/resources/clientkeystore"), password);
+      // truststore password (storepass)
+      ts.load(new FileInputStream("src/main/resources/clienttruststore"), password);
 
-        // truststore password (storepass)
-        ts.load(new FileInputStream("src/main/resources/clienttruststore"), password);
+      kmf.init(ks, password); // user password (keypass)
+      tmf.init(ts); // keystore can be used as truststore here
+      ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
 
-        kmf.init(ks, password); // user password (keypass)
-        tmf.init(ts); // keystore can be used as truststore here
-        ctx.init(kmf.getKeyManagers(), tmf.getTrustManagers(), null);
-
-        factory = ctx.getSocketFactory();
-
-      } catch (Exception e) {
-        throw new IOException(e.getMessage());
-      }
+      SSLSocketFactory factory = ctx.getSocketFactory();
       SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
       System.out.println("\nsocket before handshake:\n" + socket + "\n");
-
-      /*
-       * send http request
-       *
-       * See SSLSocketClient.java for more information about why
-       * there is a forced handshake here when using PrintWriters.
-       */
 
       socket.startHandshake();
 
@@ -249,8 +232,11 @@ public class App {
       out.close();
       read.close();
       socket.close();
-    } catch (Exception e) {
-      e.printStackTrace();
+    } catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException
+        | UnrecoverableKeyException | KeyManagementException e) {
+      // TODO Auto-generated catch block
+      System.out.println("[ERROR] " + e.getMessage());
+      System.out.println("[INFO] Did you start the server correctly? Same port and address?");
     }
   }
 }

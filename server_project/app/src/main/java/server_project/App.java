@@ -9,8 +9,6 @@ import javax.net.ssl.*;
 
 public class App {
   public static void main(String args[]) {
-    System.out.println("\nServer Started\n");
-
     int port = 1337;
     if (args.length >= 1) {
       port = Integer.parseInt(args[0]);
