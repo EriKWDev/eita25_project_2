@@ -3,7 +3,10 @@ package client_project;
 import java.io.*;
 import javax.net.ssl.*;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.security.KeyStore;
 import java.security.cert.*;
@@ -19,62 +22,143 @@ import org.json.*;
  */
 
 public class App {
-  public static void mainLoop(BufferedReader read, PrintWriter out, BufferedReader in) throws JSONException {
-    String msg = "";
-    String session = "";
-    int nonce = -1;
-    // Console console = System.console();
 
-    try {
-      System.out.println("username: ");
-      var username = read.readLine();
-      System.out.println("password: ");
+  String session = "";
+  int nonce = -1;
 
-      // char[] password = console.readPassword();
-      var password = read.readLine();
-      // System.out.println("Yeyeyeyeye " + username + " " + password);
+  PrintWriter out;
+  BufferedReader in;
+  BufferedReader read;
 
-      // Request a new session
-      out.println(new JSONObject().put("kind", "NEW_SESSION").toString());
-      out.flush();
+  public App(PrintWriter out, BufferedReader in, BufferedReader read) {
+    this.out = out;
+    this.in = in;
+    this.read = read;
+  }
 
-      JSONObject newSessionResult = new JSONObject(in.readLine());
+  public void getNewSessionAndNonce() throws JSONException, IOException {
+    var result = sendReceive(new JSONObject().put("kind", "NEW_SESSION"));
 
-      session = newSessionResult.getString("session");
-      nonce = newSessionResult.getInt("nonce");
+    this.session = result.getString("session");
+    this.nonce = result.getInt("nonce");
+  }
 
-      nonce++;
-      out.println(
-          new JSONObject()
-              .put("kind", "LOGIN")
-              .put("session", session)
-              .put("nonce", nonce)
-              .put("username", username)
-              .put("password", password));
-      out.flush();
+  public void send(JSONObject data) throws JSONException {
+    if (data.getString("kind").compareTo("NEW_SESSION") != 0) {
+      this.nonce++;
 
-    } catch (IOException e) {
-      e.printStackTrace();
+      data.put("session", session);
+      data.put("nonce", nonce);
     }
 
-    for (;;) {
-      System.out.print(">");
+    data.put("timestamp", new Date().toString());
+
+    out.println(data.toString());
+    out.flush();
+  }
+
+  public JSONObject receive() throws JSONException, IOException {
+    return new JSONObject(in.readLine());
+  }
+
+  public JSONObject sendReceive(JSONObject data) throws JSONException, IOException {
+    send(data);
+    return receive();
+  }
+
+  public boolean login(String username, String password) throws JSONException, IOException {
+    return login(username, password, "PATIENT");
+  }
+
+  public boolean login(String username, String password, String type) throws JSONException, IOException {
+    if (session == "" || nonce == -1) {
+      getNewSessionAndNonce();
+    }
+
+    var result = sendReceive(new JSONObject()
+        .put("kind", "LOGIN")
+        .put("type", type)
+        .put("username", username)
+        .put("password", password));
+
+    switch (result.getString("kind")) {
+      case "LOGIN_FAILED":
+        return false;
+
+      case "LOGIN_SUCCESS":
+        break;
+
+      default:
+        return false;
+    }
+
+    return true;
+  }
+
+  public void mainLoop() {
+
+    try {
+      var success = false;
+      while (!success) {
+        System.out.println("username: ");
+        var username = read.readLine();
+        System.out.println("password: ");
+        var password = read.readLine();
+
+        success = login(username, password);
+      }
+    } catch (IOException | JSONException e) {
+      e.printStackTrace();
+      return;
+    }
+
+    System.out.println("Welcome!");
+    System.out.println("Type 'help' for help. 'quit' to exit.");
+
+    String[] args;
+    boolean done = false;
+
+    String[] defaultHelpMessages = {
+        "'help'    - Prints this help message.",
+        "'quit'    - Signs you out and exits the application"
+    };
+
+    List<String> helpMessages = new ArrayList<String>();
+    for (var message : defaultHelpMessages) {
+      helpMessages.add(message);
+    }
+
+    while (!done) {
+      System.out.print("> ");
 
       try {
-        msg = read.readLine();
+        args = read.readLine().split(" ");
 
-        if (msg.equalsIgnoreCase("quit")) {
-          break;
+        var command = args[0].toLowerCase();
+        var handled = true;
+
+        // Default commands
+        switch (command) {
+          case "help":
+            for (var message : helpMessages) {
+              System.out.println(message);
+            }
+
+            break;
+          case "quit":
+            done = true;
+            break;
+
+          default:
+            handled = false;
+            break;
         }
 
-        System.out.print("sending '" + msg + "' to server...");
+        if (handled) {
+          continue;
+        }
 
-        out.println(msg);
-        out.flush();
-
-        System.out.println("done");
-        System.out.println("received '" + in.readLine() + "' from server\n");
-
+        System.out.println("Couldn't find command '" + command + "'. Type 'help' for help.");
       } catch (IOException e) {
         e.printStackTrace();
       }
@@ -154,7 +238,8 @@ public class App {
       PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
       BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
-      mainLoop(read, out, in);
+      var app = new App(out, in, read);
+      app.mainLoop();
 
       in.close();
       out.close();

@@ -1,1 +1,0 @@
-javac Client.java && java Client localhost 1337
