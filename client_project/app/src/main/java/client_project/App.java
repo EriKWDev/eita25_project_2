@@ -112,7 +112,11 @@ public class App {
       return;
     }
 
-    System.out.println("Welcome!");
+    System.out.println();
+    System.out.println("+==========+");
+    System.out.println("| Welcome! |");
+    System.out.println("+==========+");
+    System.out.println();
     System.out.println("Type 'help' for help. 'quit' to exit.");
 
     String[] args;
