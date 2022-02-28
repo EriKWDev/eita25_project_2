@@ -2,9 +2,9 @@
 EITA25 Project 2
 
 ## Running
-Start the server by going into the `server_project` directory and run the file `run.sh` (or call `gradle run`)
+Start the server by going into the `server_project` directory and run the file `run.sh` (or call `gradle run --console=plain`)
 
-Start the client by going into the `client_project` directory and run the file `run.sh` (or call `gradle run localhost 1337`)
+Start the client by going into the `client_project` directory and run the file `run.sh` (or call `gradle run --console=plain --args "localhost 1337"`) (It is very important that you use --console=plain or else you won't be able to type any commands.)
 
 IMPORTANT: Please make sure to start the server BEFORE the client.
 
