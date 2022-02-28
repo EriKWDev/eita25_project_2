@@ -131,9 +131,9 @@ VALUES
 
 INSERT INTO medical_records (record_id, patient_id, doctor_id, nurse_id, division_id, medical_data)
 VALUES
-  ("r001", "p001", "dr001", "n001", "d001", "Tummy hurts"),
-  ("r002", "p001", "dr002", "n002", "d002", "Tummy still hurts"),
-  ("r003", "p002", "dr001", "n001", "d001", "Feet hurt"),
-  ("r004", "p002", "dr001", "n002", "d001", "Had to amputate feet");
+  ("r1", "p001", "dr001", "n001", "d001", "Tummy hurts"),
+  ("r2", "p001", "dr002", "n002", "d002", "Tummy still hurts"),
+  ("r3", "p002", "dr001", "n001", "d001", "Feet hurt"),
+  ("r4", "p002", "dr001", "n002", "d001", "Had to amputate feet");
 
 

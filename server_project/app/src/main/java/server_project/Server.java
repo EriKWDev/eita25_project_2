@@ -16,8 +16,10 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -110,6 +112,9 @@ public class Server implements Runnable {
         case "LOGIN":
           if (!checkNonce(data)) {
             log("Nonce check failed");
+            send(out, new JSONObject()
+                .put("kind", "ERROR")
+                .put("message", "Incorrect nonce."));
             return;
           }
 
@@ -254,6 +259,9 @@ public class Server implements Runnable {
         case "LIST_RECORDS":
           if (!checkNonce(data)) {
             log("Nonce check failed");
+            send(out, new JSONObject()
+                .put("kind", "ERROR")
+                .put("message", "Incorrect nonce."));
             return;
           }
 
@@ -301,10 +309,117 @@ public class Server implements Runnable {
                 .put("nurse_id", recordsResult.getString("nurse_id")));
           }
 
+          log("A list of records has been sent to " + sessionIDMap.get(data.getString("session")));
           send(out, new JSONObject()
               .put("kind", "LIST_RECORDS_RESPONSE")
               .put("records", records));
 
+          break;
+
+        case "CREATE_RECORD":
+          if (!checkNonce(data)) {
+            log("Nonce check failed");
+            send(out, new JSONObject()
+                .put("kind", "ERROR")
+                .put("message", "Incorrect nonce."));
+            return;
+          }
+
+          var creatorType = sessionTypeMap.get(data.getString("session"));
+
+          switch (creatorType) {
+
+            case "DOCTOR":
+              break;
+
+            default:
+              send(out, new JSONObject()
+                  .put("kind", "CREATE_RECORD_FAILED")
+                  .put("message", "You do not have the required level of access to create a record."));
+              return;
+          }
+
+          var currentHighestIDResult = connection
+              .createStatement()
+              .executeQuery("SELECT record_id FROM medical_records ORDER BY record_id DESC LIMIT 1");
+
+          String currentHighestID = currentHighestIDResult.getString("record_id").split("r")[1];
+          var newID = "r" + (Integer.parseInt(currentHighestID) + 1);
+
+          var createStatement = connection.prepareStatement(
+              "INSERT INTO medical_records (record_id, patient_id, doctor_id, nurse_id, division_id, medical_data) VALUES (?, ?, ?, ?, (SELECT division_id FROM doctors WHERE doctor_id=?), ?)");
+
+          createStatement.setString(1, newID);
+          createStatement.setString(2, data.getString("patient_id"));
+          createStatement.setString(3, sessionIDMap.get(data.getString("session")));
+          createStatement.setString(4, data.getString("nurse_id"));
+          createStatement.setString(5, sessionIDMap.get(data.getString("session")));
+          createStatement.setString(6, data.getString("medical_data"));
+
+          try {
+            createStatement.execute();
+          } catch (SQLException e) {
+            send(out, new JSONObject()
+                .put("kind", "CREATE_RECORD_FAILED")
+                .put("message", "An error occurred while creating record."));
+
+            log("[ERROR] Error while creating record: " + e.getMessage());
+            return;
+          }
+
+          log(String.format("%s created a record with id %s for patient %s",
+              sessionIDMap.get(data.getString("session")),
+              newID,
+              data.getString("patient_id")));
+
+          send(out, new JSONObject()
+              .put("kind", "CREATE_RECORD_SUCCESS"));
+
+          break;
+
+        case "DELETE_RECORD":
+          if (!checkNonce(data)) {
+            log("Nonce check failed");
+            send(out, new JSONObject()
+                .put("kind", "ERROR")
+                .put("message", "Incorrect nonce."));
+            return;
+          }
+
+          var deleteType = sessionTypeMap.get(data.getString("session"));
+          var deleteResponse = new JSONObject()
+              .put("kind", "DELETE_RECORD_SUCCESS");
+
+          var deleteRecordID = data.getString("record_id");
+
+          switch (deleteType) {
+            case "GOVERNMENT":
+              break;
+
+            default:
+              send(out, new JSONObject()
+                  .put("kind", "DELETE_RECORD_FAILED")
+                  .put("message", "You do not have the required level of access to delete that record."));
+              return;
+          }
+
+          var s = connection.prepareStatement("DELETE FROM medical_records WHERE record_id=?");
+          s.setString(1, deleteRecordID);
+
+          try {
+            s.execute();
+          } catch (SQLException e) {
+            send(out, new JSONObject()
+                .put("kind", "DELETE_RECORD_FAILED")
+                .put("message", "An error occured while attempting to delete record."));
+            return;
+          }
+
+          log(String.format("Record with ID '%s' has been deleted by %s",
+              deleteRecordID,
+              sessionIDMap.get(data.getString("session"))));
+
+          send(out, deleteResponse);
           break;
 
         default:

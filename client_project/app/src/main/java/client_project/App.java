@@ -175,6 +175,60 @@ public class App {
     }
   }
 
+  public void deleteRecord(String recordID) throws JSONException, IOException {
+    var result = sendReceive(new JSONObject()
+        .put("kind", "DELETE_RECORD")
+        .put("record_id", recordID));
+
+    switch (result.getString("kind")) {
+      case "DELETE_RECORD_SUCCESS":
+        System.out.println("Deleted record with ID " + recordID);
+        break;
+
+      default:
+      case "DELETE_RECORD_FAILED":
+        System.out.println("[ERROR] Record deletion failed: " + result.getString("message"));
+        break;
+    }
+  }
+
+  public void updateRecord(String recordID) {
+
+  }
+
+  public void createRecord() throws IOException, JSONException {
+
+    if (!individualType.equalsIgnoreCase("DOCTOR")) {
+      System.out.println("[ERROR] You have to be a doctor to create medical record.");
+      return;
+    }
+
+    System.out.print("patient_id: ");
+    String patient_id = read.readLine();
+    System.out.print("nurse_id: ");
+    String nurse_id = read.readLine();
+    System.out.print("medical_data: ");
+    String medical_data = read.readLine();
+
+    var result = sendReceive(new JSONObject()
+        .put("kind", "CREATE_RECORD")
+        .put("patient_id", patient_id)
+        .put("nurse_id", nurse_id)
+        .put("medical_data", medical_data));
+
+    switch (result.getString("kind")) {
+      case "CREATE_RECORD_SUCCESS":
+        System.out.println("Successfully created record for patient with ID " + patient_id);
+        break;
+
+      default:
+      case "CREATE_RECORD_FAILED":
+        System.out.println("[ERROR] Could not create record: " + result.getString("message"));
+        break;
+    }
+
+  }
+
   public void mainLoop() {
 
     try {
@@ -250,7 +304,27 @@ public class App {
             break;
 
           case "records":
-            printRecords();
+            if (args.length == 1) {
+              printRecords();
+            } else {
+              switch (args[1].toLowerCase()) {
+                case "update":
+                  updateRecord(args[2]);
+                  break;
+
+                case "delete":
+                  deleteRecord(args[2]);
+                  break;
+
+                case "create":
+                  createRecord();
+                  break;
+
+                default:
+                  break;
+
+              }
+            }
             break;
 
           default:
