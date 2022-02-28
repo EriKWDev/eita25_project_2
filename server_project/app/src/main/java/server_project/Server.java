@@ -6,6 +6,7 @@ import javax.net.*;
 import javax.net.ssl.*;
 
 import org.json.*;
+import org.mindrot.jbcrypt.BCrypt;
 
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -45,7 +46,7 @@ public class Server implements Runnable {
   }
 
   public String hash(String password, String salt) {
-    return "" + (password + salt).hashCode();
+    return BCrypt.hashpw(password, BCrypt.gensalt(14) + salt);
   }
 
   public void log(String message) {
@@ -101,16 +102,33 @@ public class Server implements Runnable {
           String username = data.getString("username");
           String password = data.getString("password");
 
-          String hashedPassword = hash(password, username);
+          var statement = connection.prepareStatement("SELECT * FROM individuals WHERE ssn=?");
+          statement.setString(1, username);
+          var result = statement.executeQuery();
 
-          var statement = connection.prepareStatement("SELECT * FROM individuals WHERE ssn = 123456-0001");
-          statement.execute();
+          String name = null;
+          String hashedPasswordInDatabase = null;
+          int loginAttempts = -1;
 
-          var loginResultSet = statement.getResultSet();
+          while (result.next()) {
+            name = result.getString("individual_name");
+            hashedPasswordInDatabase = result.getString("password");
+            loginAttempts = result.getInt("login_attempts");
+            break;
+          }
 
-          var success = true;
+          log("Login attempts: " + loginAttempts);
 
-          if (!success) {
+          if (loginAttempts > 5) {
+            log("Session '" + data.get("session") + "' has too many failed login attempts.");
+
+            send(out, new JSONObject()
+                .put("kind", "LOGIN_FAILED")
+                .put("message", "Too many failed attempts. Contact a system administrator."));
+            break;
+          }
+
+          if (name == null || hashedPasswordInDatabase == null) {
             log("Session '" + data.get("session") + "' failed login attempt.");
 
             send(out, new JSONObject()
@@ -118,11 +136,31 @@ public class Server implements Runnable {
                 .put("message", "Login failed."));
             break;
           }
+          var success = BCrypt.checkpw(password, hashedPasswordInDatabase);
+
+          if (!success) {
+            log("Session '" + data.get("session") + "' failed login attempt.");
+
+            send(out, new JSONObject()
+                .put("kind", "LOGIN_FAILED")
+                .put("message", "Login failed."));
+
+            statement = connection.prepareStatement("UPDATE individuals SET login_attempts = ? WHERE ssn IN(?)");
+            statement.setInt(1, loginAttempts + 1);
+            statement.setString(2, username);
+            statement.execute();
+            break;
+          }
 
           log("Session '" + data.get("session") + "' logged in successfully.");
 
+          statement = connection.prepareStatement("UPDATE individuals SET login_attempts = 0 WHERE ssn IN(?)");
+          statement.setString(1, username);
+          statement.execute();
+
           send(out, new JSONObject()
-              .put("kind", "LOGIN_SUCCESS"));
+              .put("kind", "LOGIN_SUCCESS")
+              .put("name", name));
           break;
 
         default:

@@ -29,6 +29,10 @@ dependencies {
 
     //JSON
     implementation 'org.json:json:20090211'
+
+    // BCrypt
+    // implementation group: 'at.favre.lib', name: 'bcrypt', version: '{latest-version}'
+    implementation group: 'org.mindrot', name: 'jbcrypt', version: '0.4'
 }
 
 application {

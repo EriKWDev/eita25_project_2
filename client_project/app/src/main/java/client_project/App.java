@@ -85,9 +85,15 @@ public class App {
 
     switch (result.getString("kind")) {
       case "LOGIN_FAILED":
+        System.out.println();
+        System.out.println(String.format("Login failed: %s", result.getString("message")));
+        System.out.println();
         return false;
 
       case "LOGIN_SUCCESS":
+        System.out.println();
+        System.out.println(String.format("+====+ | Welcome back '%s'! | +====+", result.getString("name")));
+        System.out.println();
         break;
 
       default:
@@ -99,10 +105,13 @@ public class App {
 
   public void mainLoop() {
 
+    Console console = System.console();
+
     try {
       var success = false;
       while (!success) {
-        System.out.println("username: ");
+
+        System.out.println("ssn: (YYMMDD-XXXX)");
         var username = read.readLine();
         System.out.println("password: ");
         var password = read.readLine();
@@ -114,16 +123,6 @@ public class App {
       return;
     }
 
-    System.out.println();
-    System.out.println("+==========+");
-    System.out.println("| Welcome! |");
-    System.out.println("+==========+");
-    System.out.println();
-    System.out.println("Type 'help' for help. 'quit' to exit.");
-
-    String[] args;
-    boolean done = false;
-
     String[] defaultHelpMessages = {
         "'help'    - Prints this help message.",
         "'quit'    - Signs you out and exits the application"
@@ -134,6 +133,10 @@ public class App {
       helpMessages.add(message);
     }
 
+    String[] args;
+    boolean done = false;
+
+    System.out.println("Type 'help' for help. 'quit' to exit.");
     while (!done) {
       System.out.print("> ");
 
