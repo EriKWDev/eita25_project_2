@@ -32,6 +32,13 @@ public class App {
   BufferedReader in;
   BufferedReader read;
 
+  String individualName = null;
+  String individualSSN = null;
+  String individualAgency = null;
+  String individualDivision = null;
+  String individualType = null;
+  String individualID = null;
+
   public App(PrintWriter out, BufferedReader in, BufferedReader read) {
     this.out = out;
     this.in = in;
@@ -83,6 +90,8 @@ public class App {
         .put("username", username)
         .put("password", password));
 
+    System.out.println(result);
+
     switch (result.getString("kind")) {
       case "LOGIN_FAILED":
         System.out.println();
@@ -91,9 +100,28 @@ public class App {
         return false;
 
       case "LOGIN_SUCCESS":
+        individualType = type;
+        individualSSN = username;
+        individualName = result.getString("name");
+        individualID = result.getString("id");
+
         System.out.println();
-        System.out.println(String.format("+====+ | Welcome back '%s'! | +====+", result.getString("name")));
+        System.out.println(String.format("+====+ | Welcome back '%s'! | +====+", individualName));
         System.out.println();
+
+        switch (type) {
+          case "GOVERNMENT":
+            individualAgency = result.getString("agency");
+            break;
+
+          case "NURSE":
+          case "DOCTOR":
+            individualDivision = result.getString("division");
+            break;
+
+          default:
+            break;
+        }
         break;
 
       default:
@@ -103,20 +131,69 @@ public class App {
     return true;
   }
 
-  public void mainLoop() {
+  public void printAbout() {
+    System.out
+        .println(String.format("You are signed in as '%s' (%s %s)", individualName, individualSSN, individualType));
+    System.out.println("Your id is: " + individualID);
+    switch (individualType) {
 
-    Console console = System.console();
+      case "NURSE":
+      case "DOCTOR":
+        System.out.println("Your hospital division is: " + individualDivision);
+        break;
+
+      case "GOVERNMENT":
+        System.out.println("Your agency is: " + individualAgency);
+        break;
+
+      case "PATIENT":
+      default:
+        break;
+    }
+  }
+
+  public void printRecords() throws JSONException, IOException, AssertionError {
+    var result = sendReceive(new JSONObject().put("kind", "LIST_RECORDS"));
+    var records = result.getJSONArray("records");
+
+    assert (result.getString("kind").compareTo("LIST_RECORDS_RESPONSE") == 0);
+
+    System.out.println("record (patient doctor nurse division): data");
+    System.out.println("");
+
+    for (int i = 0; i < records.length(); i++) {
+      var record = records.getJSONObject(i);
+
+      System.out.println(
+          String.format("%s (%s %s %s %s): %s",
+              record.getString("record_id"),
+              record.getString("patient_id"),
+              record.getString("doctor_id"),
+              record.getString("nurse_id"),
+              record.getString("division_id"),
+              record.getString("data")));
+    }
+  }
+
+  public void mainLoop() {
 
     try {
       var success = false;
       while (!success) {
 
+        System.out.println("What type of login do you want to make?");
+        System.out.println("You can type one of: PATIENT (default), NURSE, DOCTOR, GOVERNMENT");
+        var type = read.readLine().toUpperCase();
+
+        if (type.compareTo("") == 0) {
+          type = "PATIENT";
+        }
+
         System.out.println("ssn: (YYMMDD-XXXX)");
         var username = read.readLine();
         System.out.println("password: ");
         var password = read.readLine();
-
-        success = login(username, password);
+        success = login(username, password, type);
       }
     } catch (IOException | JSONException e) {
       e.printStackTrace();
@@ -124,8 +201,16 @@ public class App {
     }
 
     String[] defaultHelpMessages = {
-        "'help'    - Prints this help message.",
-        "'quit'    - Signs you out and exits the application"
+        "GENERAL:",
+        "'help'               - Prints this help message.",
+        "'quit'               - Signs you out and exits the application.",
+        "'about'              - Prints information about your account.",
+        "",
+        "RECORDS",
+        "'records'                                            - Lists records you have access to as <record_id> (<patient>): <record_entry>.",
+        "'records update <record_id> <new_entry>'             - Edits record with ID <record_id>",
+        "'records delete <record_id>'                         - Deletes record with ID <record_id>",
+        "'records create <patient_id> <nurse_id> <new_entry>' - Creates record with ID <record_id>",
     };
 
     List<String> helpMessages = new ArrayList<String>();
@@ -136,9 +221,11 @@ public class App {
     String[] args;
     boolean done = false;
 
+    System.out.println(String.format("You are signed in as a '%s'!", individualType));
     System.out.println("Type 'help' for help. 'quit' to exit.");
+
     while (!done) {
-      System.out.print("> ");
+      System.out.print("\n> ");
 
       try {
         args = read.readLine().split(" ");
@@ -158,6 +245,14 @@ public class App {
             done = true;
             break;
 
+          case "about":
+            printAbout();
+            break;
+
+          case "records":
+            printRecords();
+            break;
+
           default:
             handled = false;
             break;
@@ -168,7 +263,8 @@ public class App {
         }
 
         System.out.println("Couldn't find command '" + command + "'. Type 'help' for help.");
-      } catch (IOException e) {
+      } catch (IOException | JSONException | AssertionError e) {
+        System.out.println("[ERROR] Something went wrong.");
         e.printStackTrace();
       }
     }

@@ -93,18 +93,20 @@ CREATE TABLE medical_records (
 
 INSERT INTO individuals (ssn, individual_name, password)
 VALUES
-  ("123456-0001",  "Alex Sibzamini",     "password123!"),
-  ("123456-0002",  "Emma Potatisodlare", "password123!"),
-  ("123456-0003",  "Alice Pot. Atis",    "password123!"),
-  ("123456-0004",  "Bob P. Tato",        "password123!"),
-  ("123456-0005",  "Jonas Pommes",       "password123!"),
+  ("123456-0001",  "Alex Sibzamini",     "password001!"),
+  ("123456-0002",  "Emma Potatisodlare", "password002!"),
+  ("123456-0003",  "Alice Pot. Atis",    "password003!"),
+  ("123456-0004",  "Bob P. Tato",        "password004!"),
+  ("123456-0005",  "Jonas Pommes",       "password005!"),
+  ("123456-0006",  "Kalle Anka",         "password006!"),
   
   ("123456-0007",  "James Bond",         "password007!");
 
 
 INSERT INTO patients (patient_id, patient_ssn)
 VALUES
-  ("p001", "123456-0001");
+  ("p001", "123456-0001"),
+  ("p002", "123456-0006");
 
 INSERT INTO hospital_divisions (division_id, division_name)
 VALUES
@@ -130,5 +132,8 @@ VALUES
 INSERT INTO medical_records (record_id, patient_id, doctor_id, nurse_id, division_id, medical_data)
 VALUES
   ("r001", "p001", "dr001", "n001", "d001", "Tummy hurts"),
-  ("r002", "p001", "dr002", "n002", "d002", "Tummy still hurts");
+  ("r002", "p001", "dr002", "n002", "d002", "Tummy still hurts"),
+  ("r003", "p002", "dr001", "n001", "d001", "Feet hurt"),
+  ("r004", "p002", "dr001", "n002", "d001", "Had to amputate feet");
+
 

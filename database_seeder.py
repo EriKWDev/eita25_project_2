@@ -14,16 +14,18 @@ def main():
           WHEN '123456-0003' THEN ?
           WHEN '123456-0004' THEN ?
           WHEN '123456-0005' THEN ?
+          WHEN '123456-0006' THEN ?
           WHEN '123456-0007' THEN ?
           ELSE password
           END
-      WHERE ssn IN('123456-0001','123456-0002','123456-0003','123456-0004','123456-0005','123456-0007');
+      WHERE ssn IN('123456-0001','123456-0002','123456-0003','123456-0004','123456-0005', '123456-0006','123456-0007');
     """, [
       bcrypt.hashpw("password001!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
       bcrypt.hashpw("password002!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
       bcrypt.hashpw("password003!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
       bcrypt.hashpw("password004!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
       bcrypt.hashpw("password005!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
+      bcrypt.hashpw("password006!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8"),
       bcrypt.hashpw("password007!".encode("utf8"), bcrypt.gensalt(13, b"2a")).decode("utf8")
     ])
 

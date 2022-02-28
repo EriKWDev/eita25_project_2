@@ -13,9 +13,12 @@ import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -24,6 +27,10 @@ public class Server implements Runnable {
   private static int numConnectedClients = 0;
 
   private Map<String, Integer> sessionNonceMap = new HashMap<>();
+  private Map<String, String> sessionSSNMap = new HashMap<>();
+  private Map<String, String> sessionTypeMap = new HashMap<>();
+  private Map<String, String> sessionIDMap = new HashMap<>();
+
   private Random random = new Random();
 
   Connection connection;
@@ -82,6 +89,12 @@ public class Server implements Runnable {
       switch (kind) {
         case "NEW_SESSION":
           String newSession = "" + (10000 + random.nextInt(99999));
+
+          // Assure newSession doesn't already exist!
+          while (sessionNonceMap.containsKey(newSession)) {
+            newSession = "" + (10000 + random.nextInt(99999));
+          }
+
           int newNonce = random.nextInt(1000000);
           sessionNonceMap.put(newSession, newNonce);
 
@@ -96,46 +109,78 @@ public class Server implements Runnable {
 
         case "LOGIN":
           if (!checkNonce(data)) {
-            break;
+            log("Nonce check failed");
+            return;
           }
 
           String username = data.getString("username");
           String password = data.getString("password");
+          String type = data.getString("type");
+          PreparedStatement statement = null;
 
-          var statement = connection.prepareStatement("SELECT * FROM individuals WHERE ssn=?");
-          statement.setString(1, username);
-          var result = statement.executeQuery();
+          switch (type) {
+            case "PATIENT":
+              statement = connection
+                  .prepareStatement("SELECT * FROM individuals JOIN patients WHERE ssn=? AND patient_ssn=?");
+              statement.setString(1, username);
+              statement.setString(2, username);
+              break;
 
-          String name = null;
-          String hashedPasswordInDatabase = null;
-          int loginAttempts = -1;
+            case "NURSE":
+              statement = connection
+                  .prepareStatement("SELECT * FROM individuals JOIN nurses WHERE ssn=? AND nurse_ssn=?");
+              statement.setString(1, username);
+              statement.setString(2, username);
+              break;
 
-          while (result.next()) {
-            name = result.getString("individual_name");
-            hashedPasswordInDatabase = result.getString("password");
-            loginAttempts = result.getInt("login_attempts");
-            break;
+            case "DOCTOR":
+              statement = connection
+                  .prepareStatement("SELECT * FROM individuals JOIN doctors WHERE ssn=? AND doctor_ssn=?");
+              statement.setString(1, username);
+              statement.setString(2, username);
+              break;
+
+            case "GOVERNMENT":
+              statement = connection
+                  .prepareStatement("SELECT * FROM individuals JOIN government_agencies WHERE ssn=? AND agency_ssn=?");
+              statement.setString(1, username);
+              statement.setString(2, username);
+              break;
+
+            default:
+              send(out, new JSONObject()
+                  .put("kind", "LOGIN_FAILED")
+                  .put("message", "Login failed. Unkown type " + type));
+
+              return;
           }
 
-          log("Login attempts: " + loginAttempts);
+          var sqlRresult = statement.executeQuery();
 
-          if (loginAttempts > 5) {
-            log("Session '" + data.get("session") + "' has too many failed login attempts.");
-
-            send(out, new JSONObject()
-                .put("kind", "LOGIN_FAILED")
-                .put("message", "Too many failed attempts. Contact a system administrator."));
-            break;
-          }
-
-          if (name == null || hashedPasswordInDatabase == null) {
+          if (!sqlRresult.next()) {
             log("Session '" + data.get("session") + "' failed login attempt.");
 
             send(out, new JSONObject()
                 .put("kind", "LOGIN_FAILED")
                 .put("message", "Login failed."));
-            break;
+            return;
           }
+
+          String name = sqlRresult.getString("individual_name");
+          String hashedPasswordInDatabase = sqlRresult.getString("password");
+          int loginAttempts = sqlRresult.getInt("login_attempts");
+
+          log("Login attempts: " + loginAttempts);
+
+          if (loginAttempts >= 5) {
+            log("Session '" + data.get("session") + "' has too many failed login attempts.");
+
+            send(out, new JSONObject()
+                .put("kind", "LOGIN_FAILED")
+                .put("message", "Too many failed attempts. Contact a system administrator."));
+            return;
+          }
+
           var success = BCrypt.checkpw(password, hashedPasswordInDatabase);
 
           if (!success) {
@@ -149,7 +194,7 @@ public class Server implements Runnable {
             statement.setInt(1, loginAttempts + 1);
             statement.setString(2, username);
             statement.execute();
-            break;
+            return;
           }
 
           log("Session '" + data.get("session") + "' logged in successfully.");
@@ -158,9 +203,108 @@ public class Server implements Runnable {
           statement.setString(1, username);
           statement.execute();
 
-          send(out, new JSONObject()
+          String id = "";
+
+          switch (type) {
+            case "PATIENT":
+              id = sqlRresult.getString("patient_id");
+              break;
+
+            case "NURSE":
+              id = sqlRresult.getString("nurse_id");
+              break;
+
+            case "DOCTOR":
+              id = sqlRresult.getString("doctor_id");
+              break;
+
+            case "GOVERNMENT":
+              id = sqlRresult.getString("agency_id");
+              break;
+          }
+
+          sessionIDMap.put(data.getString("session"), id);
+
+          var response = new JSONObject()
               .put("kind", "LOGIN_SUCCESS")
-              .put("name", name));
+              .put("name", name)
+              .put("id", id);
+
+          sessionSSNMap.put(data.getString("session"), username);
+          sessionTypeMap.put(data.getString("session"), type);
+
+          switch (type) {
+            case "NURSE":
+            case "DOCTOR":
+              response.put("division", sqlRresult.getString("division_id"));
+              break;
+
+            case "GOVERNMENT":
+              response.put("agency", sqlRresult.getString("agency_id"));
+              break;
+
+            default:
+            case "PATIENT":
+              break;
+          }
+
+          send(out, response);
+          break;
+
+        case "LIST_RECORDS":
+          if (!checkNonce(data)) {
+            log("Nonce check failed");
+            return;
+          }
+
+          PreparedStatement recordStatement = null;
+
+          List<JSONObject> records = new ArrayList<>();
+
+          id = sessionIDMap.get(data.getString("session"));
+
+          switch (sessionTypeMap.get(data.getString("session"))) {
+            case "PATIENT":
+              recordStatement = connection
+                  .prepareStatement("SELECT * FROM medical_records WHERE patient_id=?");
+              recordStatement.setString(1, id);
+              break;
+
+            case "DOCTOR":
+              recordStatement = connection.prepareStatement(
+                  "SELECT * FROM medical_records WHERE doctor_id=? OR division_id IN (SELECT division_id FROM doctors WHERE doctor_id=?)");
+              recordStatement.setString(1, id);
+              recordStatement.setString(2, id);
+              break;
+
+            case "NURSE":
+              recordStatement = connection.prepareStatement(
+                  "SELECT * FROM medical_records WHERE nurse_id=? OR division_id IN (SELECT division_id FROM nurses WHERE nurse_id=?)");
+              recordStatement.setString(1, id);
+              recordStatement.setString(2, id);
+              break;
+
+            case "GOVERNMENT":
+              recordStatement = connection.prepareStatement("SELECT * FROM medical_records");
+            default:
+              break;
+          }
+
+          var recordsResult = recordStatement.executeQuery();
+          while (recordsResult.next()) {
+            records.add(new JSONObject()
+                .put("data", recordsResult.getString("medical_data"))
+                .put("patient_id", recordsResult.getString("patient_id"))
+                .put("record_id", recordsResult.getString("record_id"))
+                .put("doctor_id", recordsResult.getString("doctor_id"))
+                .put("division_id", recordsResult.getString("division_id"))
+                .put("nurse_id", recordsResult.getString("nurse_id")));
+          }
+
+          send(out, new JSONObject()
+              .put("kind", "LIST_RECORDS_RESPONSE")
+              .put("records", records));
+
           break;
 
         default:
