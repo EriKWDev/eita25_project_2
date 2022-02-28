@@ -38,6 +38,11 @@ Some of them include:
 
 Commands will only work if your currently logged in account has the right priveleges.
 
+A logfile of everything being logged in the server is saved inside the `server_project/app/server.log` file.
+More user's and their passwords can be found inside the `schema.sql` file or the `database_seeder.py` file.
+
+If you need to reset the database, run the `reset_database.sh` file from the root directory of the project.
+
 ## Versions
 The code in this project has been tried and verified with the following versions of `java`, `sqlite3` and `gradle`:
 ```log
