@@ -16,10 +16,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -36,6 +34,7 @@ public class Server implements Runnable {
   private Random random = new Random();
 
   Connection connection;
+  FileOutputStream logfile = new FileOutputStream("server.log", true);
 
   public Server(ServerSocket ss) throws IOException, SQLException {
     serverSocket = ss;
@@ -59,7 +58,16 @@ public class Server implements Runnable {
   }
 
   public void log(String message) {
-    System.out.println(new Date().toString() + " | " + message);
+    String actualMessage = new Date().toString() + " | " + message;
+    System.out.println(actualMessage);
+
+    // Write to logfile.....
+    try {
+      logfile.write((actualMessage + "\n").getBytes());
+    } catch (IOException e) {
+      System.out.println("[ERROR] Could not write to logfile.");
+      e.printStackTrace();
+    }
   }
 
   public boolean checkNonce(JSONObject data) throws JSONException {
@@ -202,7 +210,8 @@ public class Server implements Runnable {
             return;
           }
 
-          log("Session '" + data.get("session") + "' logged in successfully.");
+          log(String.format("Session '%s' logged in successfully (id: %s).", data.get("session"),
+              sessionIDMap.get(data.getString("session"))));
 
           statement = connection.prepareStatement("UPDATE individuals SET login_attempts = 0 WHERE ssn IN(?)");
           statement.setString(1, username);
@@ -316,6 +325,92 @@ public class Server implements Runnable {
 
           break;
 
+        case "UPDATE_RECORD":
+          if (!checkNonce(data)) {
+            log("Nonce check failed");
+            send(out, new JSONObject()
+                .put("kind", "ERROR")
+                .put("message", "Incorrect nonce."));
+            return;
+          }
+
+          var updaterType = sessionTypeMap.get(data.getString("session"));
+          var updateRecordID = data.getString("record_id");
+
+          switch (updaterType) {
+            case "NURSE":
+              var checkIDStatementNurse = connection
+                  .prepareStatement("SELECT * FROM medical_records WHERE record_id=?");
+              checkIDStatementNurse.setString(1, updateRecordID);
+
+              var checkIDResultNurse = checkIDStatementNurse.executeQuery();
+
+              if (!checkIDResultNurse.getString("nurse_id")
+                  .equalsIgnoreCase(sessionIDMap.get(data.getString("session")))) {
+
+                send(out, new JSONObject()
+                    .put("kind", "UPDATE_RECORD_FAILED")
+                    .put("message", "You do not have the required level of access to update that record."));
+                log(String.format("[ERROR] A nurse with id %s tried to edit a record (%s) but was denied.",
+                    sessionIDMap.get(data.getString("session")), updateRecordID));
+                return;
+              }
+
+              break;
+
+            case "DOCTOR":
+              var checkIDStatementDoctor = connection
+                  .prepareStatement("SELECT * FROM medical_records WHERE record_id=?");
+              checkIDStatementDoctor.setString(1, updateRecordID);
+
+              var checkIDResultDoctor = checkIDStatementDoctor.executeQuery();
+
+              if (!checkIDResultDoctor.getString("doctor_id")
+                  .equalsIgnoreCase(sessionIDMap.get(data.getString("session")))) {
+
+                send(out, new JSONObject()
+                    .put("kind", "UPDATE_RECORD_FAILED")
+                    .put("message", "You do not have the required level of access to update that record."));
+
+                log(String.format("[ERROR] A doctor with id %s tried to edit a record (%s) but was denied.",
+                    sessionIDMap.get(data.getString("session")), updateRecordID));
+                return;
+              }
+              break;
+
+            default:
+              send(out, new JSONObject()
+                  .put("kind", "UPDATE_RECORD_FAILED")
+                  .put("message", "You do not have the required level of access to update that record."));
+              log(String.format("%s who isn't a doctor or nurse tried to update a record (%s) but was denied.",
+                  sessionIDMap.get(data.getString("session")), updateRecordID));
+              return;
+          }
+
+          var updateStatement = connection
+              .prepareStatement("UPDATE medical_records SET medical_data=? WHERE record_id=?");
+
+          updateStatement.setString(1, data.getString("medical_data"));
+          updateStatement.setString(2, updateRecordID);
+
+          try {
+            updateStatement.executeUpdate();
+          } catch (SQLException e) {
+            send(out, new JSONObject()
+                .put("kind", "UPDATE_RECORD_FAILED")
+                .put("message", "An error occurred while updating record."));
+            log("[ERROR] Could not create record: " + e.getMessage());
+            return;
+          }
+
+          log(String.format("%s updated a record with id %s",
+              sessionIDMap.get(data.getString("session")), updateRecordID));
+
+          send(out, new JSONObject()
+              .put("kind", "UPDATE_RECORD_SUCCESS"));
+
+          break;
+
         case "CREATE_RECORD":
           if (!checkNonce(data)) {
             log("Nonce check failed");
@@ -400,6 +495,8 @@ public class Server implements Runnable {
               send(out, new JSONObject()
                   .put("kind", "DELETE_RECORD_FAILED")
                   .put("message", "You do not have the required level of access to delete that record."));
+              log(String.format("%s who isn't a government agency tried to delete a record (%s) but was denied.",
+                  sessionIDMap.get(data.getString("session")), deleteRecordID));
               return;
           }
 
@@ -412,6 +509,7 @@ public class Server implements Runnable {
             send(out, new JSONObject()
                 .put("kind", "DELETE_RECORD_FAILED")
                 .put("message", "An error occured while attempting to delete record."));
+            log("[ERROR] A record could not be deleted: " + e.getMessage());
             return;
           }
 

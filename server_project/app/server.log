@@ -1,0 +1,22 @@
+Mon Feb 28 14:35:35 CET 2022 | Server StartedMon Feb 28 14:35:41 CET 2022 | [TLS] client connectedMon Feb 28 14:35:41 CET 2022 | [TLS] client name (cert subject DN field): CN=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),OU=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),O=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),L=Lund,ST=Skane,C=SEMon Feb 28 14:35:41 CET 2022 | [TLS] 1 concurrent connection(s)Mon Feb 28 14:36:03 CET 2022 | Server Started
+Mon Feb 28 14:36:05 CET 2022 | [TLS] client connected
+Mon Feb 28 14:36:05 CET 2022 | [TLS] client name (cert subject DN field): CN=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),OU=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),O=Erik Gren (er3314gr-s)/Angelica Catherine Larsson (an7061la-s)/Dennis Do (de3513do-s)/Elham Tayebi (el1461ta-s),L=Lund,ST=Skane,C=SE
+Mon Feb 28 14:36:05 CET 2022 | [TLS] 1 concurrent connection(s)
+Mon Feb 28 14:36:18 CET 2022 | Received request of kind: 'NEW_SESSION'
+Mon Feb 28 14:36:18 CET 2022 | Created new session '13903'
+Mon Feb 28 14:36:18 CET 2022 | Received request of kind: 'LOGIN'
+Mon Feb 28 14:36:18 CET 2022 | Login attempts: 0
+Mon Feb 28 14:36:18 CET 2022 | Session '13903' logged in successfully.
+Mon Feb 28 14:36:19 CET 2022 | Received request of kind: 'LIST_RECORDS'
+Mon Feb 28 14:36:19 CET 2022 | A list of records has been sent to dr001
+Mon Feb 28 14:36:27 CET 2022 | Received request of kind: 'CREATE_RECORD'
+Mon Feb 28 14:36:27 CET 2022 | dr001 created a record with id r7 for patient p001
+Mon Feb 28 14:36:29 CET 2022 | Received request of kind: 'LIST_RECORDS'
+Mon Feb 28 14:36:29 CET 2022 | A list of records has been sent to dr001
+Mon Feb 28 14:36:35 CET 2022 | Received request of kind: 'DELETE_RECORD'
+Mon Feb 28 14:36:35 CET 2022 | dr001 who isn't a government agency tried to delete a record (r7) but was denied.
+Mon Feb 28 14:36:46 CET 2022 | Received request of kind: 'UPDATE_RECORD'
+Mon Feb 28 14:36:46 CET 2022 | dr001 updated a record with id r7
+Mon Feb 28 14:36:53 CET 2022 | [TLS] client disconnected
+Mon Feb 28 14:36:53 CET 2022 | 0 concurrent connection(s)
+

@@ -90,8 +90,6 @@ public class App {
         .put("username", username)
         .put("password", password));
 
-    System.out.println(result);
-
     switch (result.getString("kind")) {
       case "LOGIN_FAILED":
         System.out.println();
@@ -192,8 +190,30 @@ public class App {
     }
   }
 
-  public void updateRecord(String recordID) {
+  public void updateRecord(String recordID) throws IOException, JSONException {
+    if (!individualType.equalsIgnoreCase("DOCTOR") && !individualType.equalsIgnoreCase("NURSE")) {
+      System.out.println("[ERROR] You have to be a doctor or nurse to update a medical record.");
+      return;
+    }
 
+    System.out.print("new medical data: ");
+    String medical_data = read.readLine();
+
+    var result = sendReceive(new JSONObject()
+        .put("kind", "UPDATE_RECORD")
+        .put("record_id", recordID)
+        .put("medical_data", medical_data));
+
+    switch (result.getString("kind")) {
+      case "UPDATE_RECORD_SUCCESS":
+        System.out.println("Successfully updated record with ID " + recordID);
+        break;
+
+      default:
+      case "UPDATE_RECORD_FAILED":
+        System.out.println("[ERROR] Could not update record: " + result.getString("message"));
+        break;
+    }
   }
 
   public void createRecord() throws IOException, JSONException {
@@ -256,15 +276,15 @@ public class App {
 
     String[] defaultHelpMessages = {
         "GENERAL:",
-        "'help'               - Prints this help message.",
-        "'quit'               - Signs you out and exits the application.",
-        "'about'              - Prints information about your account.",
+        "  help   - Prints this help message.",
+        "  quit   - Signs you out and exits the application.",
+        "  about  - Prints information about your account.",
         "",
         "RECORDS",
-        "'records'                                            - Lists records you have access to as <record_id> (<patient>): <record_entry>.",
-        "'records update <record_id> <new_entry>'             - Edits record with ID <record_id>",
-        "'records delete <record_id>'                         - Deletes record with ID <record_id>",
-        "'records create <patient_id> <nurse_id> <new_entry>' - Creates record with ID <record_id>",
+        "  records                     - Lists records you have access to.",
+        "  records update <record_id>  - Edits record with ID <record_id>",
+        "  records delete <record_id>  - Deletes record with ID <record_id>",
+        "  records create              - Creates record",
     };
 
     List<String> helpMessages = new ArrayList<String>();
