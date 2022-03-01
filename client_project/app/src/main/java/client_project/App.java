@@ -329,10 +329,18 @@ public class App {
             } else {
               switch (args[1].toLowerCase()) {
                 case "update":
+                  if (args.length <= 2) {
+                    System.out.println("[ERROR] Not enough arguments. See instructions using `help`");
+                    break;
+                  }
                   updateRecord(args[2]);
                   break;
 
                 case "delete":
+                  if (args.length <= 2) {
+                    System.out.println("[ERROR] Not enough arguments. See instructions using `help`");
+                    break;
+                  }
                   deleteRecord(args[2]);
                   break;
 
